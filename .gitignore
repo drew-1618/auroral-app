@@ -3,3 +3,13 @@ node_modules/
 dist/
 .env
 *.log
+
+# Virtual Environments
+backend/.venv/
+.venv/
+venv/
+
+# Pytest & Python Caches
+.pytest_cache/
+**/__pycache__/
+*.py[cod]
