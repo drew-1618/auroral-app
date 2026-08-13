@@ -1,0 +1,85 @@
+# Auroral System & Engineering Rules
+
+## 1. Project Overview & Architecture
+- Project Name: Auroral (Audio-First Voice-to-Structured Book Notes Platform)
+- Repository Structure: Monorepo with two primary subdirectories:
+  - `mobile/`: React Native (Expo SDK 54, TypeScript) iOS Application
+  - `backend/`: FastAPI (Python 3.11+) API Server, Celery/Redis Queue, PostgreSQL (pgvector)
+- Primary Engineering Principle: Asynchronous, event-driven audio processing. Never block HTTP response loops during audio transcription or LLM summarization.
+
+## 2. Technology Stack & Constraints
+- Frontend (`/mobile`):
+  - Framework: React Native with Expo SDK 54 & TypeScript (Strict Mode).
+  - Audio & Haptics: `expo-av` for recording, `expo-haptics` for tactile feedback.
+  - State & Networking: React Context / Hooks with `axios` or native `fetch` client.
+- Backend (`/backend`):
+  - Framework: Python 3.11+ with FastAPI & Pydantic v2 (Strict Typing).
+  - Speech Recognition: Groq API (`whisper-large-v3`) via async Python SDK.
+  - Task Queue: Redis + Celery (or `saq`/`arun`) running in Docker containers for background job execution.
+  - Persistence & Vector Search: PostgreSQL with `pgvector` extension enabled for note storage and semantic embeddings.
+
+## 3. Code Quality & Architectural Patterns
+- Layered Backend Architecture: Always separate concerns into Routers -> Services -> Repositories/Database Access.
+- Strict Type Safety:
+  - Frontend: All props, API response payloads, and navigation params MUST have explicit TypeScript interfaces.
+  - Backend: All request/response schemas MUST be validated via Pydantic models with type hints.
+- Error Handling:
+  - Operational errors must return standardized JSON payloads: `{ "error": "Code", "message": "Description", "details": {} }`.
+  - Speech processing failures must transition task queue jobs to an explicit `failed` state with diagnostic retry metadata.
+
+## 4. Testing & Verification Requirements (Mandatory TDD)
+- Test-Driven Loop: Before implementing any new API route, schema parser, or service logic, write the corresponding unit or integration tests (`pytest`) first.
+- Execution Gate: Run `pytest` inside `/backend` to verify that tests fail prior to implementation and pass afterward.
+- Do not mark any task or subtask as complete if local unit or integration tests fail.
+
+## 5. Agent Operational Boundaries
+- Target Directories: Execute operations inside `mobile/` or `backend/` contexts. Do not mix dependencies between subdirectories.
+- Dependency Restrictions: Do not add new third-party libraries or packages without explicit request or clear justification.
+- Security: Never expose raw API keys (Groq, OpenAI, Supabase keys) in code or git commits. Utilize environment variables loaded via `.env.example` templates.
+
+## 6. Directory Structure Blueprint
+The agent MUST strictly adhere to the following file layout when generating new modules:
+
+auroral-app/
+├── .antigravity/
+│   └── rules
+├── mobile/                     # React Native Expo Frontend
+│   ├── src/
+│   │   ├── components/         # Modular UI components (Buttons, Cards, Recording UI)
+│   │   ├── screens/            # Screen views (Home, NoteDetail, RecordScreen)
+│   │   ├── services/           # API fetch client & HTTP request logic
+│   │   ├── context/            # Global React state (Auth, Active Recording)
+│   │   ├── types/              # TypeScript interfaces & API schemas
+│   │   └── utils/              # Helper functions (Formatters, Audio utils)
+│   ├── App.tsx
+│   └── package.json
+└── backend/                    # FastAPI Python Backend
+    ├── app/
+    │   ├── api/                # FastAPI routers & HTTP endpoints
+    │   │   └── v1/             # Versioned routes (/notes, /audio, /health)
+    │   ├── core/               # App configuration, security, database sessions
+    │   ├── models/             # SQLAlchemy / SQLModel database ORM entities
+    │   ├── schemas/            # Pydantic v2 validation & request/response schemas
+    │   ├── services/           # Business logic (Groq Whisper, LLM extraction, vector embedding)
+    │   ├── workers/            # Celery / Redis background queue tasks
+    │   └── main.py             # FastAPI entrypoint
+    ├── tests/                  # Pytest suite mirroring app/ structure
+    ├── Dockerfile
+    ├── docker-compose.yml      # Redis + Postgres/pgvector services
+    └── requirements.txt
+
+## 7. Data Models & Vector Standards
+- Database Strategy: Use PostgreSQL with `pgvector` for note storage and semantic embeddings.
+- Table Entities:
+  - `books`: Stores title, author, cover_url, and created_at timestamps.
+  - `notes`: Foreign key to `books`. Stores raw_transcription, summary, key_quotes (JSONB), and vector_embedding (`vector(1536)` or `vector(384)` depending on embedding model).
+- Vector Query Requirement: All semantic search functions MUST use Cosine Similarity (`<=>` operator) or Inner Product (`<#>` operator) queries via pgvector.
+
+## 8. Git Commit Rules
+- Commit Format: Follow Conventional Commits specification:
+  - `feat:` for new capabilities or endpoints
+  - `fix:` for bug fixes
+  - `test:` for adding or fixing test cases
+  - `refactor:` for code reorganization without behavior changes
+  - `docs:` for documentation or rules updates
+- Never commit broken code, unformatted files, or unresolved test failures.
