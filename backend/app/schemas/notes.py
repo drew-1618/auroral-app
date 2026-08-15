@@ -51,6 +51,14 @@ class StructuredNoteResponse(BaseModel):
     )
 
 
+class NoteUpdateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    summary: Optional[str] = None
+    key_takeaways: Optional[List[str]] = None
+    key_quotes: Optional[List[KeyQuote]] = None
+
+
 class NoteResponse(BaseModel):
     id: int
     chapter_id: int
@@ -61,6 +69,7 @@ class NoteResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class TranscriptionResponse(BaseModel):

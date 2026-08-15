@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.models.book import Book
 from app.models.chapter import Chapter
 from app.models.note import Note
-from app.schemas.notes import StructuredNoteResponse
+from app.schemas.notes import NoteResponse, NoteUpdateRequest, StructuredNoteResponse
 from app.services.extractor import NoteExtractorService
 from app.services.speech import SpeechService
 
@@ -39,7 +39,6 @@ async def process_audio(
         chapter_title=chapter_title,
     )
 
-    # Database Persistence & Upserting Logic
     resolved_book: Optional[Book] = None
 
     if book_id is not None:
@@ -92,7 +91,6 @@ async def process_audio(
             db.add(resolved_chapter)
             await db.flush()
 
-    # Create Note
     new_note = Note(
         chapter_id=resolved_chapter.id,
         raw_transcription=structured_note.raw_transcription,
@@ -119,6 +117,30 @@ async def process_audio(
         language=structured_note.language,
         created_at=new_note.created_at,
     )
+
+
+@router.patch("/notes/{note_id}", response_model=NoteResponse)
+async def update_note(
+    note_id: int,
+    payload: NoteUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+) -> NoteResponse:
+    result = await db.execute(select(Note).where(Note.id == note_id))
+    note = result.scalar_one_or_none()
+
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+
+    if payload.summary is not None:
+        note.summary = payload.summary
+    if payload.key_takeaways is not None:
+        note.key_takeaways = payload.key_takeaways
+    if payload.key_quotes is not None:
+        note.key_quotes = [q.model_dump() for q in payload.key_quotes]
+
+    await db.commit()
+    await db.refresh(note)
+    return NoteResponse.model_validate(note)
 
 
 @router.delete("/notes/{note_id}")

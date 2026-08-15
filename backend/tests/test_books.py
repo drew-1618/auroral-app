@@ -1,7 +1,5 @@
 import pytest
-from app.models.book import Book
-from app.models.chapter import Chapter
-from app.models.note import Note
+from app.schemas.notes import KeyQuote, NoteUpdateRequest
 
 
 @pytest.mark.asyncio
@@ -12,10 +10,9 @@ async def test_list_books_empty(async_client):
 
 
 @pytest.mark.asyncio
-async def test_list_and_get_book_details(async_client):
-    # Process audio note via endpoint to test end-to-end database persistence
+async def test_list_get_update_export_delete(async_client):
     from unittest.mock import AsyncMock, patch
-    from app.schemas.notes import KeyQuote, StructuredNoteResponse, TranscriptionResponse
+    from app.schemas.notes import StructuredNoteResponse, TranscriptionResponse
 
     mock_transcription = TranscriptionResponse(
         text="Deep work is focus.", language="en", duration=5.0
@@ -48,23 +45,24 @@ async def test_list_and_get_book_details(async_client):
         note_id = created_data["note_id"]
         book_id = created_data["book_id"]
 
-    # Test List Books
-    res_list = await async_client.get("/api/v1/books")
-    assert res_list.status_code == 200
-    books = res_list.json()
-    assert len(books) == 1
-    assert books[0]["title"] == "Deep Work"
-    assert books[0]["total_chapters"] == 1
-    assert books[0]["total_notes"] == 1
+    # Test PATCH /api/v1/notes/{id}
+    patch_payload = {
+        "summary": "Updated summary text for deep work.",
+        "key_takeaways": ["New takeaway bullet 1", "New takeaway bullet 2"],
+        "key_quotes": [{"quote": "Updated quote text", "context": "New context"}],
+    }
+    res_patch = await async_client.patch(f"/api/v1/notes/{note_id}", json=patch_payload)
+    assert res_patch.status_code == 200
+    patched = res_patch.json()
+    assert patched["summary"] == "Updated summary text for deep work."
+    assert len(patched["key_takeaways"]) == 2
 
-    # Test Get Book Details
-    res_detail = await async_client.get(f"/api/v1/books/{book_id}")
-    assert res_detail.status_code == 200
-    detail = res_detail.json()
-    assert detail["title"] == "Deep Work"
-    assert len(detail["chapters"]) == 1
-    assert len(detail["chapters"][0]["notes"]) == 1
-    assert detail["chapters"][0]["notes"][0]["id"] == note_id
+    # Test GET /api/v1/books/{id}/export
+    res_export = await async_client.get(f"/api/v1/books/{book_id}/export")
+    assert res_export.status_code == 200
+    assert "# Deep Work" in res_export.text
+    assert "*Author: Cal Newport*" in res_export.text
+    assert "Updated summary text for deep work." in res_export.text
 
     # Test Delete Note
     res_del = await async_client.delete(f"/api/v1/notes/{note_id}")

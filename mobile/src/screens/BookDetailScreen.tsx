@@ -15,13 +15,14 @@ import {
   BookOpen,
   User,
   Layers,
-  Trash2,
-  Quote,
-  CheckCircle2,
   Mic,
+  Share2,
+  Copy,
 } from 'lucide-react-native';
-import { deleteNote, fetchBookDetails } from '../services/api';
-import { BookDetail, NoteItem } from '../types';
+import { NoteCard } from '../components/NoteCard';
+import { deleteNote, exportBookMarkdown, fetchBookDetails, updateNote } from '../services/api';
+import { BookDetail, KeyQuote } from '../types';
+import { copyTextToClipboard, shareTextContent } from '../utils/markdown';
 
 interface BookDetailScreenProps {
   route: any;
@@ -77,6 +78,51 @@ export const BookDetailScreen: React.FC<BookDetailScreenProps> = ({
     );
   };
 
+  const handleUpdateNote = async (
+    noteId: number,
+    updatedData: {
+      summary: string;
+      key_takeaways: string[];
+      key_quotes: KeyQuote[];
+    }
+  ) => {
+    try {
+      await updateNote(noteId, updatedData);
+      loadBookDetail();
+    } catch (err: any) {
+      Alert.alert('Update Failed', err.message || 'Could not update note.');
+    }
+  };
+
+  const handleExportBook = async () => {
+    if (!book) return;
+    try {
+      const markdownText = await exportBookMarkdown(book.id);
+      Alert.alert(
+        'Export Book Notes',
+        `Export notes for "${book.title}" as Markdown:`,
+        [
+          {
+            text: 'Copy to Clipboard',
+            onPress: async () => {
+              const success = await copyTextToClipboard(markdownText);
+              if (success) Alert.alert('Copied!', 'Full book notes copied to clipboard.');
+            },
+          },
+          {
+            text: 'Share',
+            onPress: async () => {
+              await shareTextContent(book.title, markdownText);
+            },
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    } catch (err: any) {
+      Alert.alert('Export Error', err.message || 'Failed to export markdown.');
+    }
+  };
+
   const handleInContextRecord = (chapterId?: number, chapterTitle?: string) => {
     navigation.navigate('Quick Record', {
       preboundBookId: book?.id,
@@ -130,13 +176,23 @@ export const BookDetailScreen: React.FC<BookDetailScreenProps> = ({
           <Text style={styles.backBtnText}>Library</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.inContextRecordNavBtn}
-          onPress={() => handleInContextRecord()}
-        >
-          <Mic color="#FFFFFF" size={16} />
-          <Text style={styles.inContextRecordNavBtnText}>Record Note</Text>
-        </TouchableOpacity>
+        <View style={styles.topHeaderNavRight}>
+          <TouchableOpacity
+            style={styles.exportBookBtn}
+            onPress={handleExportBook}
+          >
+            <Share2 color="#6366F1" size={16} />
+            <Text style={styles.exportBookBtnText}>Export</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.inContextRecordNavBtn}
+            onPress={() => handleInContextRecord()}
+          >
+            <Mic color="#FFFFFF" size={16} />
+            <Text style={styles.inContextRecordNavBtnText}>Record Note</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -180,53 +236,13 @@ export const BookDetailScreen: React.FC<BookDetailScreenProps> = ({
               </View>
 
               {chapter.notes && chapter.notes.length > 0 ? (
-                chapter.notes.map((note: NoteItem) => (
-                  <View key={note.id} style={styles.noteCard}>
-                    <View style={styles.noteCardHeader}>
-                      <Text style={styles.noteDate}>
-                        {new Date(note.created_at).toLocaleDateString(
-                          'en-US',
-                          {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          }
-                        )}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => handleDeleteNote(note.id)}
-                      >
-                        <Trash2 color="#EF4444" size={18} />
-                      </TouchableOpacity>
-                    </View>
-
-                    <Text style={styles.summaryText}>{note.summary}</Text>
-
-                    {/* Key Quotes */}
-                    {note.key_quotes && note.key_quotes.length > 0 && (
-                      <View style={styles.quoteBlockContainer}>
-                        {note.key_quotes.map((q, idx) => (
-                          <View key={idx} style={styles.quoteCard}>
-                            <Quote color="#8B5CF6" size={14} />
-                            <Text style={styles.quoteText}>“{q.quote}”</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    {/* Key Takeaways */}
-                    {note.key_takeaways && note.key_takeaways.length > 0 && (
-                      <View style={styles.takeawaysContainer}>
-                        {note.key_takeaways.map((t, idx) => (
-                          <View key={idx} style={styles.takeawayRow}>
-                            <CheckCircle2 color="#10B981" size={14} />
-                            <Text style={styles.takeawayText}>{t}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
+                chapter.notes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    onDeleteNote={handleDeleteNote}
+                    onUpdateNote={handleUpdateNote}
+                  />
                 ))
               ) : (
                 <Text style={styles.noNotesText}>
@@ -270,6 +286,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
+  topHeaderNavRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -279,6 +300,20 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     fontSize: 15,
     fontWeight: '600',
+  },
+  exportBookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  exportBookBtnText: {
+    color: '#A5B4FC',
+    fontSize: 13,
+    fontWeight: '700',
   },
   inContextRecordNavBtn: {
     flexDirection: 'row',
@@ -344,6 +379,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
+
   chapterTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -367,62 +403,6 @@ const styles = StyleSheet.create({
     color: '#A78BFA',
     fontSize: 12,
     fontWeight: '700',
-  },
-  noteCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  noteCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  noteDate: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  summaryText: {
-    color: '#E2E8F0',
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 10,
-  },
-  quoteBlockContainer: {
-    gap: 6,
-    marginBottom: 10,
-  },
-  quoteCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    padding: 10,
-    borderRadius: 8,
-  },
-  quoteText: {
-    color: '#DDD6FE',
-    fontSize: 13,
-    fontStyle: 'italic',
-    flex: 1,
-  },
-  takeawaysContainer: {
-    gap: 6,
-  },
-  takeawayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  takeawayText: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    flex: 1,
   },
   noNotesText: {
     color: '#64748B',

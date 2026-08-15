@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  Alert,
+  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,15 +16,35 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  MoreVertical,
+  Edit3,
+  Copy,
+  Share2,
+  Trash2,
+  X,
 } from 'lucide-react-native';
-import { StructuredNoteResponse } from '../types';
+import { EditNoteModal } from './EditNoteModal';
+import { KeyQuote, NoteItem, StructuredNoteResponse } from '../types';
+import { copyTextToClipboard, formatNoteToMarkdown, shareTextContent } from '../utils/markdown';
 
 interface NoteCardProps {
-  note: StructuredNoteResponse;
+  note: StructuredNoteResponse | NoteItem;
+  onDeleteNote?: (noteId: number) => void;
+  onUpdateNote?: (noteId: number, data: {
+    summary: string;
+    key_takeaways: string[];
+    key_quotes: KeyQuote[];
+  }) => Promise<void>;
 }
 
-export const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
+export const NoteCard: React.FC<NoteCardProps> = ({
+  note,
+  onDeleteNote,
+  onUpdateNote,
+}) => {
   const [showRawTranscription, setShowRawTranscription] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const formattedDate = new Date(note.created_at || Date.now()).toLocaleDateString(
     'en-US',
@@ -35,29 +57,75 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
     }
   );
 
+  const bookTitle = 'book_title' in note ? note.book_title : undefined;
+  const bookAuthor = 'book_author' in note ? note.book_author : undefined;
+  const noteId = 'note_id' in note ? note.note_id : 'id' in note ? note.id : undefined;
+  const keyTakeaways = 'actionable_takeaways' in note ? note.actionable_takeaways : note.key_takeaways;
+
+  const handleCopyMarkdown = async () => {
+    setShowMenu(false);
+    const md = formatNoteToMarkdown(note, bookTitle, bookAuthor);
+    const success = await copyTextToClipboard(md);
+    if (success) {
+      Alert.alert('Copied!', 'Note copied as Markdown to clipboard.');
+    }
+  };
+
+  const handleShareMarkdown = async () => {
+    setShowMenu(false);
+    const md = formatNoteToMarkdown(note, bookTitle, bookAuthor);
+    await shareTextContent(bookTitle || 'Book Note', md);
+  };
+
+  const handleDeletePress = () => {
+    setShowMenu(false);
+    if (noteId && onDeleteNote) {
+      onDeleteNote(noteId);
+    }
+  };
+
+  const handleSaveEdit = async (updatedData: {
+    summary: string;
+    key_takeaways: string[];
+    key_quotes: KeyQuote[];
+  }) => {
+    if (noteId && onUpdateNote) {
+      await onUpdateNote(noteId, updatedData);
+    }
+  };
+
   return (
     <View style={styles.cardContainer}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.badgeContainer}>
-          <BookOpen color="#6366F1" size={18} />
-          <Text style={styles.bookTitle}>
-            {note.book_title || 'Untitled Book Note'}
-          </Text>
-        </View>
-
-        {note.book_author && (
-          <View style={styles.authorRow}>
-            <User color="#94A3B8" size={14} />
-            <Text style={styles.bookAuthor}>{note.book_author}</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.badgeContainer}>
+            <BookOpen color="#6366F1" size={18} />
+            <Text style={styles.bookTitle}>
+              {bookTitle || 'Book Note'}
+            </Text>
           </View>
-        )}
 
-        <View style={styles.metaRow}>
-          <Clock color="#64748B" size={12} />
-          <Text style={styles.dateText}>{formattedDate}</Text>
-          <Text style={styles.langTag}>{note.language.toUpperCase()}</Text>
+          {bookAuthor && (
+            <View style={styles.authorRow}>
+              <User color="#94A3B8" size={14} />
+              <Text style={styles.bookAuthor}>{bookAuthor}</Text>
+            </View>
+          )}
+
+          <View style={styles.metaRow}>
+            <Clock color="#64748B" size={12} />
+            <Text style={styles.dateText}>{formattedDate}</Text>
+          </View>
         </View>
+
+        {/* Subtle 3-Dot Overflow Menu Button */}
+        <TouchableOpacity
+          style={styles.moreBtn}
+          onPress={() => setShowMenu(true)}
+        >
+          <MoreVertical color="#94A3B8" size={20} />
+        </TouchableOpacity>
       </View>
 
       {/* Summary */}
@@ -65,22 +133,6 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
         <Text style={styles.sectionTitle}>Summary</Text>
         <Text style={styles.summaryText}>{note.summary}</Text>
       </View>
-
-      {/* Key Ideas */}
-      {note.key_ideas && note.key_ideas.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Lightbulb color="#F59E0B" size={18} />
-            <Text style={styles.sectionTitle}>Key Ideas</Text>
-          </View>
-          {note.key_ideas.map((idea, index) => (
-            <View key={index} style={styles.bulletRow}>
-              <View style={styles.bulletDot} />
-              <Text style={styles.bulletText}>{idea}</Text>
-            </View>
-          ))}
-        </View>
-      )}
 
       {/* Key Quotes */}
       {note.key_quotes && note.key_quotes.length > 0 && (
@@ -106,13 +158,13 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
       )}
 
       {/* Actionable Takeaways */}
-      {note.actionable_takeaways && note.actionable_takeaways.length > 0 && (
+      {keyTakeaways && keyTakeaways.length > 0 && (
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <CheckCircle2 color="#10B981" size={18} />
             <Text style={styles.sectionTitle}>Actionable Takeaways</Text>
           </View>
-          {note.actionable_takeaways.map((takeaway, index) => (
+          {keyTakeaways.map((takeaway, index) => (
             <View key={index} style={styles.takeawayRow}>
               <CheckCircle2 color="#10B981" size={16} />
               <Text style={styles.takeawayText}>{takeaway}</Text>
@@ -140,6 +192,73 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
           <Text style={styles.transcriptionText}>{note.raw_transcription}</Text>
         </View>
       )}
+
+      {/* Action Menu Modal */}
+      <Modal visible={showMenu} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuContent}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>Note Options</Text>
+              <TouchableOpacity onPress={() => setShowMenu(false)}>
+                <X color="#94A3B8" size={20} />
+              </TouchableOpacity>
+            </View>
+
+            {onUpdateNote && noteId && (
+              <TouchableOpacity
+                style={styles.menuOption}
+                onPress={() => {
+                  setShowMenu(false);
+                  setShowEditModal(true);
+                }}
+              >
+                <Edit3 color="#6366F1" size={18} />
+                <Text style={styles.menuOptionText}>Edit Note</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={handleCopyMarkdown}
+            >
+              <Copy color="#10B981" size={18} />
+              <Text style={styles.menuOptionText}>Copy as Markdown</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuOption}
+              onPress={handleShareMarkdown}
+            >
+              <Share2 color="#8B5CF6" size={18} />
+              <Text style={styles.menuOptionText}>Share Note</Text>
+            </TouchableOpacity>
+
+            {onDeleteNote && noteId && (
+              <TouchableOpacity
+                style={[styles.menuOption, styles.deleteMenuOption]}
+                onPress={handleDeletePress}
+              >
+                <Trash2 color="#EF4444" size={18} />
+                <Text style={[styles.menuOptionText, styles.deleteOptionText]}>
+                  Delete Note
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Edit Note Modal */}
+      <EditNoteModal
+        visible={showEditModal}
+        note={note}
+        onClose={() => setShowEditModal(false)}
+        onSave={handleSaveEdit}
+      />
     </View>
   );
 };
@@ -149,7 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderRadius: 20,
     padding: 20,
-    marginVertical: 16,
+    marginVertical: 12,
     borderWidth: 1,
     borderColor: '#334155',
     shadowColor: '#000',
@@ -159,10 +278,21 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
     paddingBottom: 14,
     marginBottom: 16,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  moreBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#0F172A',
   },
   badgeContainer: {
     flexDirection: 'row',
@@ -197,16 +327,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
   },
-  langTag: {
-    color: '#6366F1',
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    fontSize: 10,
-    fontWeight: '700',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 6,
-  },
   section: {
     marginBottom: 18,
   },
@@ -226,25 +346,6 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     fontSize: 15,
     lineHeight: 22,
-  },
-  bulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 6,
-  },
-  bulletDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#F59E0B',
-    marginTop: 8,
-  },
-  bulletText: {
-    color: '#E2E8F0',
-    fontSize: 14,
-    lineHeight: 20,
-    flex: 1,
   },
   quoteCard: {
     backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -307,5 +408,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontStyle: 'italic',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  menuContent: {
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  menuTitle: {
+    color: '#F8FAFC',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  deleteMenuOption: {
+    borderBottomWidth: 0,
+  },
+  menuOptionText: {
+    color: '#E2E8F0',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  deleteOptionText: {
+    color: '#EF4444',
   },
 });

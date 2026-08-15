@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { BookDetail, BookSummary, StructuredNoteResponse } from '../types';
+import { BookDetail, BookSummary, KeyQuote, StructuredNoteResponse } from '../types';
 
 let overrideApiBaseUrl: string | null = null;
 
@@ -109,6 +109,34 @@ export const uploadAudioForProcessing = async (
   }
 };
 
+export interface NoteUpdateRequestData {
+  summary?: string;
+  key_takeaways?: string[];
+  key_quotes?: KeyQuote[];
+}
+
+export const updateNote = async (
+  noteId: number,
+  data: NoteUpdateRequestData,
+  customBaseUrl?: string
+): Promise<void> => {
+  const baseUrl = customBaseUrl ? customBaseUrl : getApiBaseUrl();
+  const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/v1/notes/${noteId}`;
+
+  const response = await fetch(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update note: ${response.statusText}`);
+  }
+};
+
 export const fetchBooks = async (customBaseUrl?: string): Promise<BookSummary[]> => {
   const baseUrl = customBaseUrl ? customBaseUrl : getApiBaseUrl();
   const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/v1/books`;
@@ -132,6 +160,20 @@ export const fetchBookDetails = async (
     throw new Error(`Failed to fetch book details: ${response.statusText}`);
   }
   return await response.json();
+};
+
+export const exportBookMarkdown = async (
+  bookId: number,
+  customBaseUrl?: string
+): Promise<string> => {
+  const baseUrl = customBaseUrl ? customBaseUrl : getApiBaseUrl();
+  const endpoint = `${baseUrl.replace(/\/+$/, '')}/api/v1/books/${bookId}/export`;
+
+  const response = await fetch(endpoint);
+  if (!response.ok) {
+    throw new Error(`Failed to export book markdown: ${response.statusText}`);
+  }
+  return await response.text();
 };
 
 export const deleteNote = async (
