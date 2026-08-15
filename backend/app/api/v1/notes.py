@@ -93,6 +93,7 @@ async def process_audio(
 
     new_note = Note(
         chapter_id=resolved_chapter.id,
+        title=structured_note.title or "Book Note",
         raw_transcription=structured_note.raw_transcription,
         summary=structured_note.summary,
         key_takeaways=structured_note.actionable_takeaways,
@@ -106,6 +107,7 @@ async def process_audio(
         note_id=new_note.id,
         book_id=resolved_book.id,
         chapter_id=resolved_chapter.id,
+        title=new_note.title,
         book_title=resolved_book.title,
         book_author=resolved_book.author,
         chapter_title=resolved_chapter.chapter_title_or_number,
@@ -131,6 +133,8 @@ async def update_note(
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
 
+    if payload.title is not None:
+        note.title = payload.title
     if payload.summary is not None:
         note.summary = payload.summary
     if payload.key_takeaways is not None:

@@ -1,5 +1,6 @@
 import os
 from typing import AsyncGenerator
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -24,7 +25,6 @@ def get_database_url() -> str:
     return raw_url
 
 
-# Use sqlite+aiosqlite for fallback/local development if asyncpg PostgreSQL is offline
 DATABASE_URL = get_database_url()
 
 try:
@@ -54,3 +54,11 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.execute(
+                text(
+                    "ALTER TABLE notes ADD COLUMN IF NOT EXISTS title VARCHAR(255) NOT NULL DEFAULT 'Book Note';"
+                )
+            )
+        except Exception:
+            pass

@@ -21,6 +21,10 @@ class StructuredNoteResponse(BaseModel):
     note_id: Optional[int] = Field(None, description="Saved note database ID")
     book_id: Optional[int] = Field(None, description="Associated book ID")
     chapter_id: Optional[int] = Field(None, description="Associated chapter ID")
+    title: str = Field(
+        "Book Note",
+        description="Concise, descriptive 3-6 word title summarizing the core concept",
+    )
     book_title: Optional[str] = Field(
         None, description="Identified or provided book title"
     )
@@ -54,6 +58,7 @@ class StructuredNoteResponse(BaseModel):
 class NoteUpdateRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    title: Optional[str] = None
     summary: Optional[str] = None
     key_takeaways: Optional[List[str]] = None
     key_quotes: Optional[List[KeyQuote]] = None
@@ -62,6 +67,7 @@ class NoteUpdateRequest(BaseModel):
 class NoteResponse(BaseModel):
     id: int
     chapter_id: int
+    title: str = "Book Note"
     raw_transcription: str
     summary: str
     key_takeaways: List[str]
@@ -69,7 +75,6 @@ class NoteResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
 
 
 class TranscriptionResponse(BaseModel):

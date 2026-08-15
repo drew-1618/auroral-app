@@ -46,7 +46,8 @@ class NoteExtractorService:
         system_prompt = (
             "You are an expert literary assistant specializing in extracting structured book notes "
             "from raw voice recordings. Analyze the transcription and format the response as JSON with "
-            "the following keys: book_title, book_author, chapter_title, summary, key_ideas (list of strings), "
+            "the following keys: title (a concise, punchy 3-6 word title capturing the core concept), "
+            "book_title, book_author, chapter_title, summary, key_ideas (list of strings), "
             "key_quotes (list of objects with quote, chapter_or_topic, context), and actionable_takeaways (list of strings)."
         )
 
@@ -82,6 +83,7 @@ class NoteExtractorService:
             ]
 
             return StructuredNoteResponse(
+                title=parsed.get("title", "Book Note"),
                 book_title=book_title or parsed.get("book_title"),
                 book_author=book_author or parsed.get("book_author"),
                 chapter_title=chapter_title

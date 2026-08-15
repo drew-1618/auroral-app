@@ -18,6 +18,7 @@ interface EditNoteModalProps {
   note: StructuredNoteResponse | NoteItem | null;
   onClose: () => void;
   onSave: (updatedData: {
+    title: string;
     summary: string;
     key_takeaways: string[];
     key_quotes: KeyQuote[];
@@ -30,6 +31,7 @@ export const EditNoteModal: React.FC<EditNoteModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const [title, setTitle] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
   const [takeaways, setTakeaways] = useState<string[]>([]);
   const [quotes, setQuotes] = useState<KeyQuote[]>([]);
@@ -37,6 +39,7 @@ export const EditNoteModal: React.FC<EditNoteModalProps> = ({
 
   useEffect(() => {
     if (note) {
+      setTitle(note.title || 'Book Note');
       setSummary(note.summary || '');
       const noteTakeaways =
         'actionable_takeaways' in note
@@ -83,6 +86,7 @@ export const EditNoteModal: React.FC<EditNoteModalProps> = ({
     try {
       setSaving(true);
       await onSave({
+        title,
         summary,
         key_takeaways: takeaways.filter((t) => t.trim().length > 0),
         key_quotes: quotes.filter((q) => q.quote.trim().length > 0),
@@ -124,6 +128,18 @@ export const EditNoteModal: React.FC<EditNoteModalProps> = ({
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Note Title Input */}
+          <View style={styles.fieldSection}>
+            <Text style={styles.label}>Note Concept Title</Text>
+            <TextInput
+              style={styles.input}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="e.g. Identity-Based Habits & Systems"
+              placeholderTextColor="#64748B"
+            />
+          </View>
+
           {/* Summary Input */}
           <View style={styles.fieldSection}>
             <Text style={styles.label}>Executive Summary</Text>
@@ -261,7 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   fieldSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   label: {
     color: '#CBD5E1',

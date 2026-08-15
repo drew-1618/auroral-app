@@ -8,6 +8,7 @@ export interface StructuredNoteResponse {
   note_id?: number;
   book_id?: number;
   chapter_id?: number;
+  title?: string;
   book_title?: string;
   book_author?: string;
   chapter_title?: string;
@@ -23,6 +24,7 @@ export interface StructuredNoteResponse {
 export interface NoteItem {
   id: number;
   chapter_id: number;
+  title?: string;
   raw_transcription: string;
   summary: string;
   key_takeaways: string[];

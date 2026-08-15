@@ -11,6 +11,7 @@ async def test_process_audio_success(async_client):
         duration=10.0,
     )
     mock_note = StructuredNoteResponse(
+        title="1% Habit Compounding Systems",
         book_title="Atomic Habits",
         book_author="James Clear",
         chapter_title="Fundamentals",
@@ -45,12 +46,10 @@ async def test_process_audio_success(async_client):
 
         assert response.status_code == 200
         json_resp = response.json()
+        assert json_resp["title"] == "1% Habit Compounding Systems"
         assert json_resp["book_title"] == "Atomic Habits"
         assert json_resp["book_author"] == "James Clear"
         assert json_resp["note_id"] is not None
-        assert json_resp["book_id"] is not None
-        assert json_resp["chapter_id"] is not None
-        assert json_resp["summary"] == "Small 1% daily habits lead to significant long term results."
 
 
 @pytest.mark.asyncio

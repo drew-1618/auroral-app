@@ -12,7 +12,6 @@ import {
   User,
   Quote,
   CheckCircle2,
-  Lightbulb,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -22,6 +21,7 @@ import {
   Share2,
   Trash2,
   X,
+  FileText,
 } from 'lucide-react-native';
 import { EditNoteModal } from './EditNoteModal';
 import { KeyQuote, NoteItem, StructuredNoteResponse } from '../types';
@@ -31,6 +31,7 @@ interface NoteCardProps {
   note: StructuredNoteResponse | NoteItem;
   onDeleteNote?: (noteId: number) => void;
   onUpdateNote?: (noteId: number, data: {
+    title: string;
     summary: string;
     key_takeaways: string[];
     key_quotes: KeyQuote[];
@@ -57,6 +58,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
     }
   );
 
+  const conceptTitle = note.title || 'Book Note';
   const bookTitle = 'book_title' in note ? note.book_title : undefined;
   const bookAuthor = 'book_author' in note ? note.book_author : undefined;
   const noteId = 'note_id' in note ? note.note_id : 'id' in note ? note.id : undefined;
@@ -74,7 +76,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   const handleShareMarkdown = async () => {
     setShowMenu(false);
     const md = formatNoteToMarkdown(note, bookTitle, bookAuthor);
-    await shareTextContent(bookTitle || 'Book Note', md);
+    await shareTextContent(conceptTitle, md);
   };
 
   const handleDeletePress = () => {
@@ -85,6 +87,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({
   };
 
   const handleSaveEdit = async (updatedData: {
+    title: string;
     summary: string;
     key_takeaways: string[];
     key_quotes: KeyQuote[];
@@ -99,16 +102,18 @@ export const NoteCard: React.FC<NoteCardProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.badgeContainer}>
-            <BookOpen color="#6366F1" size={18} />
-            <Text style={styles.bookTitle}>
-              {bookTitle || 'Book Note'}
-            </Text>
-          </View>
+          <Text style={styles.conceptTitle}>{conceptTitle}</Text>
+
+          {bookTitle && (
+            <View style={styles.badgeContainer}>
+              <BookOpen color="#6366F1" size={14} />
+              <Text style={styles.bookTitle}>{bookTitle}</Text>
+            </View>
+          )}
 
           {bookAuthor && (
             <View style={styles.authorRow}>
-              <User color="#94A3B8" size={14} />
+              <User color="#94A3B8" size={13} />
               <Text style={styles.bookAuthor}>{bookAuthor}</Text>
             </View>
           )}
@@ -288,6 +293,14 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    paddingRight: 8,
+  },
+  conceptTitle: {
+    color: '#F8FAFC',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 6,
   },
   moreBtn: {
     padding: 6,
@@ -297,31 +310,31 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     marginBottom: 4,
   },
   bookTitle: {
-    color: '#F8FAFC',
-    fontSize: 20,
-    fontWeight: '700',
+    color: '#A5B4FC',
+    fontSize: 14,
+    fontWeight: '600',
     flexShrink: 1,
   },
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
   bookAuthor: {
     color: '#94A3B8',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 8,
+    marginTop: 6,
   },
   dateText: {
     color: '#64748B',

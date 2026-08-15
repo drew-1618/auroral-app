@@ -110,10 +110,12 @@ export const uploadAudioForProcessing = async (
 };
 
 export interface NoteUpdateRequestData {
+  title?: string;
   summary?: string;
   key_takeaways?: string[];
   key_quotes?: KeyQuote[];
 }
+
 
 export const updateNote = async (
   noteId: number,
