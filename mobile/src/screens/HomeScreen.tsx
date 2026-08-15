@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Audio } from 'expo-av';
-import { Settings, Server, Check } from 'lucide-react-native';
+import { Settings, Server, Check, Bookmark } from 'lucide-react-native';
 import { RecordButton } from '../components/RecordButton';
 import { NoteCard } from '../components/NoteCard';
 import { getApiBaseUrl, setApiBaseUrl, uploadAudioForProcessing } from '../services/api';
@@ -22,11 +22,18 @@ import {
 } from '../services/audio';
 import { RecordingStatus, StructuredNoteResponse } from '../types';
 
-export const HomeScreen: React.FC = () => {
+interface HomeScreenProps {
+  route?: any;
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [status, setStatus] = useState<RecordingStatus>('idle');
   const [durationSeconds, setDurationSeconds] = useState<number>(0);
   const [bookTitle, setBookTitle] = useState<string>('');
   const [bookAuthor, setBookAuthor] = useState<string>('');
+  const [chapterTitle, setChapterTitle] = useState<string>('');
+  const [boundBookId, setBoundBookId] = useState<number | undefined>(undefined);
+  const [boundChapterId, setBoundChapterId] = useState<number | undefined>(undefined);
   const [serverUrl, setServerUrl] = useState<string>(getApiBaseUrl());
   const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
   const [noteResult, setNoteResult] = useState<StructuredNoteResponse | null>(null);
@@ -34,6 +41,24 @@ export const HomeScreen: React.FC = () => {
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (route?.params) {
+      const {
+        preboundBookId,
+        preboundBookTitle,
+        preboundBookAuthor,
+        preboundChapterId,
+        preboundChapterTitle,
+      } = route.params;
+
+      if (preboundBookId) setBoundBookId(preboundBookId);
+      if (preboundBookTitle) setBookTitle(preboundBookTitle);
+      if (preboundBookAuthor) setBookAuthor(preboundBookAuthor);
+      if (preboundChapterId) setBoundChapterId(preboundChapterId);
+      if (preboundChapterTitle) setChapterTitle(preboundChapterTitle);
+    }
+  }, [route?.params]);
 
   useEffect(() => {
     return () => {
@@ -113,7 +138,10 @@ export const HomeScreen: React.FC = () => {
         uri,
         bookTitle,
         bookAuthor,
-        serverUrl
+        serverUrl,
+        boundBookId,
+        boundChapterId,
+        chapterTitle
       );
 
       setNoteResult(structuredNote);
@@ -124,7 +152,7 @@ export const HomeScreen: React.FC = () => {
       setStatus('error');
       const msg = err.message || 'Failed to process audio';
       setErrorMessage(msg);
-      setShowServerConfig(true); // Automatically expand server config on connection error
+      setShowServerConfig(true);
       await triggerErrorHaptic();
     }
   };
@@ -190,6 +218,16 @@ export const HomeScreen: React.FC = () => {
           </View>
         )}
 
+        {/* In-Context Bound Metadata Banner */}
+        {(boundBookId || boundChapterId) && (
+          <View style={styles.contextBanner}>
+            <Bookmark color="#6366F1" size={16} />
+            <Text style={styles.contextBannerText}>
+              Recording bound to: {bookTitle} {chapterTitle ? `• ${chapterTitle}` : ''}
+            </Text>
+          </View>
+        )}
+
         {/* Optional Metadata Inputs */}
         <View style={styles.inputContainer}>
           <TextInput
@@ -206,6 +244,14 @@ export const HomeScreen: React.FC = () => {
             placeholderTextColor="#64748B"
             value={bookAuthor}
             onChangeText={setBookAuthor}
+            editable={status !== 'recording' && status !== 'uploading'}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Chapter / Topic (Optional)"
+            placeholderTextColor="#64748B"
+            value={chapterTitle}
+            onChangeText={setChapterTitle}
             editable={status !== 'recording' && status !== 'uploading'}
           />
         </View>
@@ -308,6 +354,23 @@ const styles = StyleSheet.create({
     width: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  contextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#6366F1',
+  },
+  contextBannerText: {
+    color: '#A5B4FC',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
   },
   inputContainer: {
     gap: 10,

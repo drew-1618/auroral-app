@@ -21,6 +21,7 @@ class NoteExtractorService:
         transcription_text: str,
         book_title: Optional[str] = None,
         book_author: Optional[str] = None,
+        chapter_title: Optional[str] = None,
     ) -> StructuredNoteResponse:
         if not transcription_text.strip():
             raise HTTPException(
@@ -45,7 +46,7 @@ class NoteExtractorService:
         system_prompt = (
             "You are an expert literary assistant specializing in extracting structured book notes "
             "from raw voice recordings. Analyze the transcription and format the response as JSON with "
-            "the following keys: book_title, book_author, summary, key_ideas (list of strings), "
+            "the following keys: book_title, book_author, chapter_title, summary, key_ideas (list of strings), "
             "key_quotes (list of objects with quote, chapter_or_topic, context), and actionable_takeaways (list of strings)."
         )
 
@@ -54,6 +55,8 @@ class NoteExtractorService:
             user_content += f"User Provided Book Title: {book_title}\n"
         if book_author:
             user_content += f"User Provided Author: {book_author}\n"
+        if chapter_title:
+            user_content += f"User Provided Chapter/Topic: {chapter_title}\n"
 
         try:
             response = await self.client.chat.completions.create(
@@ -81,6 +84,9 @@ class NoteExtractorService:
             return StructuredNoteResponse(
                 book_title=book_title or parsed.get("book_title"),
                 book_author=book_author or parsed.get("book_author"),
+                chapter_title=chapter_title
+                or parsed.get("chapter_title")
+                or "General Notes",
                 summary=parsed.get(
                     "summary", "No summary could be generated."
                 ),

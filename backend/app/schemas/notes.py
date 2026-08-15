@@ -18,11 +18,17 @@ class KeyQuote(BaseModel):
 class StructuredNoteResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    note_id: Optional[int] = Field(None, description="Saved note database ID")
+    book_id: Optional[int] = Field(None, description="Associated book ID")
+    chapter_id: Optional[int] = Field(None, description="Associated chapter ID")
     book_title: Optional[str] = Field(
         None, description="Identified or provided book title"
     )
     book_author: Optional[str] = Field(
         None, description="Identified or provided book author"
+    )
+    chapter_title: Optional[str] = Field(
+        None, description="Identified or provided chapter name/number"
     )
     summary: str = Field(
         ..., description="Structured executive summary of the audio note"
@@ -44,6 +50,17 @@ class StructuredNoteResponse(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
+
+class NoteResponse(BaseModel):
+    id: int
+    chapter_id: int
+    raw_transcription: str
+    summary: str
+    key_takeaways: List[str]
+    key_quotes: List[KeyQuote]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TranscriptionResponse(BaseModel):
